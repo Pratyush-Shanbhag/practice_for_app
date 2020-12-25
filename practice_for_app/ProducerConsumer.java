@@ -3,97 +3,105 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 
-class Producer extends Thread { 
-  
-	StringBuffer buffer; 
-	BufferedReader br;	
+public class ProducerConsumer {
+    
+	public static void main(String[] args) throws InterruptedException {
+        	Task task = new Task();
 
-	Producer() {
-		br = new BufferedReader(new InputStreamReader(System.in));	
-        	buffer = new StringBuffer(); 
-   	} 
-  
-    	public void run() { 
+        	Thread producerThread = new Thread(new Runnable() {
+            		public void run()
+            		{
+                		try {
+                    			task.produce();
+                		}
+                		catch (InterruptedException e) {
+                    		e.printStackTrace();
+                		}
+            		}
+        	});
 
-        	synchronized (buffer) {
+        	Thread consumerThread = new Thread(new Runnable() {
+            		public void run()
+            		{
+                		try {
+                    			task.consume();
+                		}
+                		catch (InterruptedException e) {
+                    			e.printStackTrace();
+                		}
+            		}
+        	});
+		
+		System.out.println();
+
+        	producerThread.start();
+        	consumerThread.start();
+
+        	producerThread.join();
+        	consumerThread.join();
+    	}
+
+    	public static class Task {
+
+
+		StringBuffer buffer;
+        	BufferedReader br;
+		int count;
+
+        	public Task() {
+                	br = new BufferedReader(new InputStreamReader(System.in));
+                	buffer = new StringBuffer();
+        		count = 0;
+		}
+
+
+		public void produce() throws InterruptedException {
 			String str = "";
-			while(!str.trim().equals("q")) {
-				try {
-					System.out.println("Enter something: ");
-					str = br.readLine();
-				}
-				catch(IOException e) {
-					e.printStackTrace();
-				}
-				if(buffer.length() ==  8) 	
-					System.out.println("Buffer is full");
-				else {
-					buffer.append(str + " ");
-                    			System.out.println("Produced " + "\"" + str + "\""); 
-				}
-				buffer.notify();
-				try {
+			while (true) {
+				synchronized (this)
+				{
+					try {
+						System.out.println("Enter one character or \"q\" to exit. The buffer can't hold more than 4 entries at a time: ");
+						str = br.readLine();
+						if(str.trim().equals("q")) {
+							System.out.println("\nHave a good day.\n");
+							System.exit(0);
+						}
+					}
+					catch(IOException e) {
+						e.printStackTrace();
+					}
+					if(count == 4)
+						System.out.println("Buffer is full");
+					else {
+						buffer.append(str + " ");
+						System.out.println("Produced " + "\"" + str + "\"");
+						count++;	
+					}
+					while(count == 4)
+                        		wait();
+			
+                    			notify();
+                    			Thread.sleep(1000);
+                		}
+            		}
+        	}
+
+		public void consume() throws InterruptedException {
+			while (true) {
+				synchronized (this)
+				{
+					while (buffer.length() == 0)
+						wait();
+
+					System.out.println("Consumed " + "\"" + buffer.substring(0, buffer.indexOf(" ")) + "\"");
+					buffer.delete(0, buffer.indexOf(" ")+1);
+					count--;
+
+					notify();
 					Thread.sleep(1000);
 				}
-				catch(Exception e) {
-					e.printStackTrace();
-				}
 			}
-        	} 
-    	}	 
-} 
-
-
-class Consumer extends Thread { 
-	
-	Producer p; 
-  
-    	Consumer(Producer temp) { 
-        	p = temp; 
-    	} 
-  
-    	public void run() {  
-        	
-		synchronized (p.buffer) { 
-            		try { 
-                		p.buffer.wait(); 
-            		} 
-            		catch (Exception e) { 
-                		e.printStackTrace(); 
-            		} 
-  
-//            		for (int i = 0; i < 4; i++) { 
-//                System.out.print(p.buffer.charAt(i) + " "); 
-//                  		System.out.println(p.buffer);
-
-  	    		if(p.buffer.length() == 0) 
-            			System.out.println("\nBuffer is Empty"); 
-        		else {
-				System.out.println("Consumed " + "\"" + p.buffer.substring(0, p.buffer.indexOf(" ")) + "\"");
-				p.buffer.delete(0, p.buffer.indexOf(" ")+1);
-			}
-			try {
-				Thread.sleep(1000);
-                        }
-			catch(Exception e) {
-				e.printStackTrace();
-			}	
-		} 
-    	} 
-} 
-  
-
-public class ProducerConsumer {
-
-	public static void main(String[] args) {
-		
-		Producer p = new Producer(); 
-        	Consumer c = new Consumer(p); 
-        	Thread t1 = new Thread(p); 
-        	Thread t2 = new Thread(c); 
-  
-        	t2.start(); 
-        	t1.start(); 	
+		}
 	}
-			
 }
